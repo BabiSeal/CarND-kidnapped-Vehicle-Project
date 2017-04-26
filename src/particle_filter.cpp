@@ -10,7 +10,7 @@
 #include <algorithm>
 #include <iostream>
 #include <numeric>
-
+#include <assert.h>
 #include "particle_filter.h"
 
 using namespace std;
@@ -88,7 +88,7 @@ void ParticleFilter::prediction(double delta_t, double std_pos[], double velocit
   double noise_y;
   double noise_theta;
 
-  for (int i; i < num_particles; i++)
+  for (int i=0; i < num_particles; i++)
     {
       theta_0 = particles[i].theta;
       // take into account potential for zero yaw-rate
@@ -132,13 +132,13 @@ void GetLandmarksWithinSensorRange(Particle *curr_p,
       double curr_dist = dist(curr_p->x, curr_p->y,
                               (double)map_landmarks[i].x_f,
                               (double)map_landmarks[i].y_f);
+      LandmarkObs lmk;
       if (curr_dist <= sensor_range) {
-        LandmarkObs lmk;
         lmk.id = map_landmarks[i].id_i;
         lmk.x = (double) map_landmarks[i].x_f;
         lmk.y = (double) map_landmarks[i].y_f;
         remaining_landmarks.push_back(lmk);
-      }
+       }
     }
 }
 
@@ -203,7 +203,7 @@ void UpdateParticleWeight(Particle *curr_p,
 
       double l2 = ((x - mux)*(x - mux))/(2*sigmax*sigmax);
       double l3 = ((y - muy)*(y - muy))/(2*sigmay*sigmay);
-      double l4 = exp(- (l1 + l2));
+      double l4 = exp(- (l2 + l3));
       
       temp_weight = l1 * l4;
       updated_weight = updated_weight*temp_weight;
@@ -223,7 +223,7 @@ void ParticleFilter::dataAssociation(std::vector<LandmarkObs> predicted, std::ve
   // observed measurement to this particular landmark.
   for (int i = 0; i < observations.size(); i++)
     {
-      double distance_so_far = 100000.0; int closest = 1000;
+      double distance_so_far = 100000.0; int closest = 0;
       for (int j = 0; j < predicted.size(); j++)
         {
           double curr_dist = dist(observations[i].x, observations[i].y, predicted[j].x, predicted[j].y);
@@ -256,9 +256,9 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
       std::vector<LandmarkObs> remaining_landmarks;
       std::vector<LandmarkObs> chosen_matched_observations;
       std::vector<LandmarkObs> converted_observations;
-      std::vector<LandmarkObs> converted_landmarks;
-
+      
       //1. Consider only landmarks that will be within sensor range of the particle
+      remaining_landmarks.resize(0);
       GetLandmarksWithinSensorRange(curr_p, map_landmarks.landmark_list, sensor_range, remaining_landmarks);
 
       //2. Convert the car observations into global map coordinates
@@ -284,9 +284,9 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
 void ParticleFilter::resample() {
   // Resample particles with replacement with probability proportional to their weight. 
   int index;
-  //std::random_device rd;
-  //std::mt19937 gen(rd()); 
-  default_random_engine gen;
+  std::random_device rd;
+  std::mt19937 gen(rd()); 
+  //default_random_engine gen;
   discrete_distribution<> dist_N(weights.begin(), weights.end());
 
   std::vector<Particle> particles_temp;
@@ -296,7 +296,7 @@ void ParticleFilter::resample() {
   
   for (int i = 0; i < num_particles; ++i)
     {
-      index = dist_N(gen);
+      int index = dist_N(gen);
       weights_temp[i] = particles[index].weight;
       particles_temp[i] = particles[index];
     }
